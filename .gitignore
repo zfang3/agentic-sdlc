@@ -9,3 +9,6 @@
 # Local scratch
 .claude/tmp/
 .claude/sessions/
+
+# Personal Claude Code overrides
+.claude/settings.local.json
