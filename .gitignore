@@ -1,0 +1,11 @@
+# macOS noise
+.DS_Store
+
+# Editor noise
+.vscode/
+.idea/
+*.swp
+
+# Local scratch
+.claude/tmp/
+.claude/sessions/

@@ -1,0 +1,16 @@
+# --- agentic-sdlc ---
+# Appended to the host project's .gitignore by /start-bootstrap.
+
+# Session work products are per-developer and ephemeral — not committed.
+.claude/sessions/
+
+# Temporary scratch space used by skills during execution.
+.claude/tmp/
+
+# Candidate skills produced by /compound-learn and /compound-evolve,
+# awaiting user approval. Once approved, they move to
+# .claude/skills/<name>/ and become committable.
+.claude/skills/pending/
+
+# Local evolve-loop bookkeeping (timestamps, last-run metadata).
+.claude/evolve-log.md
