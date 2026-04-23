@@ -81,6 +81,16 @@ Default to simplifying recently modified code. Avoid drive-by refactors of unrel
 
 ## The Process
 
+### Step 0 — Read project conventions
+
+Read `docs/skills/start-simplify.md` if present. Its contents are additional project guidance for this skill (complexity thresholds, off-limits code, preferred abstractions). Follow them alongside the defaults below.
+
+If the file is missing or only contains the stub template, tell the user:
+
+> No project conventions declared at `docs/skills/start-simplify.md`. Proceeding with built-in defaults. Run `/start-sync` to scaffold a stub if your team wants to capture conventions.
+
+Then proceed to Step 1.
+
 ### Step 1 — Understand before touching (Chesterton's Fence)
 
 Before changing or removing anything, understand why it exists. If you see a fence across a road and don't understand why, don't tear it down.
