@@ -1,18 +1,28 @@
 # Verification Checklist
 
-The subagent spawned in Phase 2 of `/start-verify` works through these four passes in
-parallel. Each finding goes on a severity (CRITICAL / HIGH / MEDIUM / LOW / PASS)
-with a file:line reference.
+The subagent spawned in Phase 3 of `/start-verify` works through these four passes in
+parallel, reviewing the evidence produced in Phases 1 and 2 (gates, task artifacts,
+cross-task assertions — all under `tmp/verify/`). Each finding goes on a severity
+(CRITICAL / HIGH / MEDIUM / LOW / PASS) with a file:line reference or artifact path.
 
-## Pass 1 — Spec compliance
+The contract is the primary source of truth. These passes supplement it — they catch
+issues the contract did not explicitly check, and they verify that the contract itself
+was honored.
 
-Check every acceptance criterion from the spec against the actual code and tests.
+## Pass 1 — Contract coverage
 
-- [ ] Every AC in `spec.md` has a corresponding test or code line that satisfies it
+Check that the contract was executed in full and that every spec AC is covered.
+
+- [ ] Every item in the contract was executed (gates, task artifacts, cross-task assertions) — no silent skips
+- [ ] Every gate in `docs/architecture/verification.md` appears in the contract's `## Gates` or under `## Declared exclusions` with rationale
+- [ ] Every task artifact has a corresponding file under `tmp/verify/`, or a recorded FAIL / ERROR / EXCLUDED with log path or rationale
+- [ ] Every expectation in the contract was compared mechanically against the artifact (not "looks reasonable")
+- [ ] Every spec AC maps to at least one contract item's expectation OR to a declared exclusion with rationale
 - [ ] No AC is partially implemented and claimed complete
 - [ ] No AC is silently descoped
 - [ ] Non-goals from the spec are actually not implemented (check for scope creep)
 - [ ] Open questions from the spec are resolved (or explicitly deferred, with a note)
+- [ ] Declared exclusions in the contract still have valid rationale given what was actually built
 
 ## Pass 2 — Codebase consistency
 

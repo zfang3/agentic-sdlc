@@ -1,6 +1,6 @@
 ---
 name: start-verify
-description: Verify a completed deliverable against its spec before shipping. Runs a deterministic gate plus multiple parallel review passes. Use before /start-ship or at any point you're claiming something is done. Verifies artifacts, not claims.
+description: Execute the plan's verification.md contract end-to-end — gates, task artifacts, cross-task assertions — and fork a review pass over the captured evidence. Use before /start-ship or any time you're claiming something is done. Verifies artifacts, not claims. Requires a contract authored by /start-plan.
 category: sdlc
 disable-model-invocation: true
 ---
@@ -9,13 +9,30 @@ disable-model-invocation: true
 
 ## Overview
 
-Runs the checks that separate "tests pass" from "this is actually done." A deterministic gate first (compile, lint, run tests, grep for anti-patterns), then parallel verification passes in an isolated subagent. The agent that built the code never grades its own homework.
+Executes the plan's verification contract (`docs/sessions/<session>/verification.md`) item by item. Gates, task artifacts, cross-task assertions — every item runs, every artifact is captured under `tmp/verify/`, every outcome compared to the declared expectation. A forked subagent then reviews the evidence for issues the contract did not cover. The agent that built the code never grades its own homework.
 
-The principle: **verify artifacts, not claims.** "All tests pass" is a claim. Test output, a green build, a working sandbox deployment — those are artifacts.
+The principle: **verify artifacts, not claims.** "All tests pass" is a claim. The contract names the artifacts that would prove the claim; this skill produces them, records them, and lets the user inspect them.
+
+## Hard gate
+
+```
+Do NOT execute any check that is not declared in the plan's verification.md contract.
+Do NOT mark any contract item "skipped" or "not applicable" unless it appears under the
+contract's `## Declared exclusions` with a written rationale. There is no silent default,
+no commit-message skip, and no verdict of PASS against a partial run.
+```
 
 ## Prerequisite
 
-A session directory with a spec + plan exists at `docs/sessions/<YYYY-MM-DD>-<slug>/`. If you're verifying without a plan, flag that — verification without a spec to verify against is just "does it run".
+The session directory at `docs/sessions/<YYYY-MM-DD>-<slug>/` must contain all three of:
+
+- `spec.md` — what was being built
+- `plan.md` — how it was broken down
+- `verification.md` — the contract `/start-verify` executes
+
+If any is missing, `/start-verify` refuses to run. Tell the user exactly which file is missing and what to run to produce it (`/start-spec`, `/start-plan`). Do not improvise checks against an absent contract.
+
+Similarly refuse if `docs/architecture/verification.md` is missing, still contains template placeholders, or has `<unknown>` markers for primitives the contract references. Running against unfilled primitives is running against claims, not artifacts.
 
 ## When to Use
 
@@ -32,124 +49,154 @@ A session directory with a spec + plan exists at `docs/sessions/<YYYY-MM-DD>-<sl
 
 ## The Process
 
-Runs in three phases: deterministic gate → parallel review → aggregate. Phases 2 and 3 fork to a subagent for isolation.
+Runs in six phases driven by the plan's contract. Phases 3 and 4 fork to a subagent for isolation.
 
-### Phase 1 — Deterministic gate (main context)
+### Phase 0 — Read project conventions, load the contract, resolve the runtime
 
-Zero ambiguity — commands either pass or fail. No agent can override.
+First, read `docs/skills/start-verify.md` if present. Its contents are additional project guidance for this skill (extra review axes, severity tuning, verdict thresholds, mandatory post-runtime checks). Layer them on the defaults below — they do NOT replace the contract or primitives.
 
-Run in order and stop on the first failure:
+If the file is missing or only contains the stub template, tell the user:
 
-1. **Import / compile check** — project-specific (`python -c "import <pkg>"`, `tsc --noEmit`, `cargo check`, `go build ./...`)
-2. **Lint / format check** — per project convention (`ruff check`, `eslint`, `rustfmt --check`, etc.)
-3. **Type check** — if separate from compile (`mypy`, `tsc`, `pyright`)
-4. **Unit test suite** — full suite, not just new tests
-5. **Integration test suite** — if the project has one
-6. **Anti-pattern grep** — run these always:
+> No project conventions declared at `docs/skills/start-verify.md`. Proceeding with built-in defaults. Run `/start-sync` to scaffold a stub if your team wants to capture conventions.
 
-   ```
-   # On the diff vs main:
-   git diff main...HEAD | grep -n "TODO\|FIXME\|XXX"    # incomplete work
-   git diff main...HEAD | grep -n "/Users/\|/home/"      # hardcoded paths
-   git diff main...HEAD | grep -niE "api[_-]?key|secret|password" # secrets
-   git diff main...HEAD | grep -n "console\.log\|pdb\.set_trace\|debugger;"  # debug artifacts
-   ```
+Then read the plan's `verification.md` and the project's `docs/architecture/verification.md`.
 
-7. **Secrets scan** — if available (`gitleaks detect`, `trufflehog`, etc.)
+1. **Runtime selection**: read the contract's `## Runtime selection`. If the stanza is absent, stop and report — a contract without explicit runtime selection is a silent default, which this skill refuses.
+2. **Runtime resolution**: find the matching `### Runtime: <name>` block in `docs/architecture/verification.md`. If no match, stop — the contract references a runtime that doesn't exist. Do NOT fall back to `local` or any other runtime.
+3. **Primitive scoping**: every runtime primitive (`start`, `ready-check`, `teardown`, `invoke`, `inspect`, `precondition`) resolves against the selected runtime's block only. Gates (`compile`, `lint`, etc.) are project-level and resolve against the top-level `## Gate primitives` section regardless of runtime.
+4. **Precondition gate**: run the selected runtime's `precondition` (if declared and not `none`). A non-zero exit stops the iteration with a clear, actionable message (e.g. "no PR open for runtime `pr-preview`; open a PR or switch the contract to `local`"). A failing precondition is not a FAIL in the report — it's a refusal to start, because the environment isn't ready for what the contract asked.
+5. **Command existence check**: resolve every other command the contract will execute (gates, task artifacts, cross-task assertions). If any is undefined or the backing binary is not installed, stop and report — the contract has drifted from the primitives library or the local environment violates `## Declared assumptions`.
 
-If any gate fails, stop. Report the failure and suggest running `/start-debug`. Do NOT proceed to Phase 2 — agent passes on broken code waste tokens.
+Create `tmp/verify/` if it does not exist (gitignored via the bootstrap template). Iteration N's artifacts land under `tmp/verify/` with names that include the iteration number to avoid overwriting earlier runs.
 
-### Phase 2 — Parallel review (forked subagent)
+### Phase 1 — Execute gates and cross-task assertions
 
-Fork a `general-purpose` subagent. Give it the verification checklist and these inputs:
+For each item under the contract's `## Gates` section, run the resolved command. Capture stdout AND stderr to `tmp/verify/<iter>-gate-<name>.log`. Stop on first non-zero exit.
+
+Then run every item under `## Cross-task assertions`. Capture output per assertion to `tmp/verify/<iter>-xta-<name>.log`. An anti-pattern grep returning non-empty is a failure; log the matching lines.
+
+If any gate OR any cross-task assertion fails, stop. Record the failure (with the log path) for the report and suggest `/start-debug` to the user. Do NOT proceed to Phase 2 or Phase 3 — running review passes over broken code produces noise.
+
+### Phase 2 — Produce every task artifact
+
+For each item under the contract's `## Task artifacts`:
+
+1. If the selected runtime's `start` is a real command (not `not applicable`) and this is the first runtime-requiring artifact this iteration, run `start`. Poll `ready-check` until exit 0 or timeout. A timeout is ERROR for every runtime artifact. If `start` is `not applicable` (the runtime is managed externally — e.g. `pr-preview` provisioned by CI), skip `start` and run `ready-check` directly; a failing `ready-check` is ERROR.
+2. Run the artifact's production steps (resolved against the selected runtime's primitives or literal commands in the contract). Capture the artifact to its declared path under `tmp/verify/`.
+3. Compare the artifact to the declared expectation. Record PASS, FAIL (with the specific mismatch), or ERROR (execution failed before the artifact could be produced).
+4. After the last task artifact, run the selected runtime's `teardown` if it's a real command (not `not applicable`) — even on failure. Teardown's exit code does not affect the verdict.
+
+**Do not skip a task artifact because "looks unchanged since last iteration."** Every iteration re-runs the full contract; skipping is silent default.
+
+**If a task artifact is under `## Declared exclusions`**, it is not run this iteration. Record `EXCLUDED` with a pointer to the exclusion's rationale. Exclusions declared at plan time are the only form of skip allowed.
+
+### Phase 3 — Review passes (forked subagent)
+
+Fork a `general-purpose` subagent. Give it these inputs:
 
 - `docs/sessions/<session>/spec.md`
 - `docs/sessions/<session>/plan.md`
+- `docs/sessions/<session>/verification.md` (the contract)
+- The Phase 1 and Phase 2 artifacts under `tmp/verify/` (by path; subagent reads them)
 - `git diff main...HEAD` (or the full change if no main)
 - `docs/architecture/overview.md`
+- `docs/architecture/verification.md`
 - `CLAUDE.md` if present in the project root
 
 Ask the subagent to run four passes in parallel and return a structured report:
 
-1. **Spec compliance** — every acceptance criterion in the spec, checked against the actual code and tests
+1. **Contract coverage** — every contract item was executed; every spec AC maps to a contract item that passed or to a declared exclusion
 2. **Codebase consistency** — patterns, naming, error handling, imports, test style
 3. **Data integrity and boundaries** — field-by-field, type conversions, null handling, validation at edges
 4. **Self-check** — adversarially review passes 1-3, filter false positives, surface anything they missed
 
 See [verification-checklist.md](references/verification-checklist.md) for the full checklist.
 
-### Phase 3 — Aggregate and score
+### Phase 4 — Aggregate and score
 
-Subagent returns findings by severity:
+Contract-driven verdict is primary; review findings are secondary and cannot override a contract failure.
+
+**Contract state**:
+
+- All items PASS (or EXCLUDED with rationale): contract passes
+- Any FAIL: contract fails
+- Any ERROR: contract errored
+
+**Review findings** (from Phase 3), by severity:
 
 - **CRITICAL** — will cause data loss, security breach, or system failure
 - **HIGH** — incorrect behavior users/agents will notice
 - **MEDIUM** — works but inconsistent, fragile, or incomplete
 - **LOW** — style, naming, minor improvements
-- **PASS** — verified correct
 
-Score: `100 − (25 × CRITICAL) − (15 × HIGH) − (5 × MEDIUM)`
+**Review score**: `100 − (25 × CRITICAL) − (15 × HIGH) − (5 × MEDIUM)`
 
-Verdict:
-- **PASS (90+)** — ready to ship
-- **PASS_WITH_CONCERNS (70-89)** — minor fixes recommended before ship
-- **NEEDS_FIXES (50-69)** — must fix before ship
-- **FAIL (<50)** — significant gaps; may need to re-plan
+**Final verdict**:
 
-### Phase 4 — Write the report
+| Contract state | Review score | Verdict |
+|---|---|---|
+| All pass | ≥ 90 | **PASS** — ready to ship |
+| All pass | 70-89 | **PASS_WITH_CONCERNS** — fix recommended |
+| All pass | 50-69 | **NEEDS_FIXES** — address review findings |
+| Any FAIL | any | **NEEDS_FIXES** at best — fix contract failures first |
+| Any ERROR | any | **FAIL** — primitives, environment, or plan is wrong |
 
-Save to `docs/sessions/<session>/verify.md`:
+### Phase 5 — Append the iteration to the verify report
+
+Write or append to `docs/sessions/<session>/verify.md`. **Append — do not overwrite.** Each iteration is a new `## Iteration N — <ISO timestamp>` section so the history is visible.
 
 ```markdown
-# Verify report — <session>
+## Iteration N — <ISO 8601 timestamp>
 
-**Score**: N
+**Contract**: `docs/sessions/<session>/verification.md`
+**Runtime**: <name from the contract's ## Runtime selection>
 **Verdict**: PASS | PASS_WITH_CONCERNS | NEEDS_FIXES | FAIL
-**Deterministic gate**: passed | failed at step N
-**Timestamp**: <ISO 8601>
+**Review score**: M
+**Contract state**: all pass | <n> FAIL | <n> ERROR | <n> EXCLUDED
 
-## Summary
+### Gates
+- [✓] `compile` — `tmp/verify/<iter>-gate-compile.log` exit 0
+- [✗] `integration` — `tmp/verify/<iter>-gate-integration.log` exit 1; tests `a::b` and `c::d` failed (log line 47-89)
 
-<one paragraph: what was verified, what was found>
+### Task artifacts
+- [✓] T1 — `tmp/verify/T1-schema-diff.txt` matches expectation (line 12)
+- [✗] T3 — `tmp/verify/T3-endpoint-replay.json` returned 500, expected 400; see log
+- [–] T5 — EXCLUDED: feature flag off in this environment (see contract §Declared exclusions)
 
-## Findings
+### Cross-task assertions
+- [✓] no debug artifacts — grep returned empty
+- [✓] no secrets — grep returned empty
 
-### CRITICAL
+### Review findings
+
+#### CRITICAL
 - [<path:line>] <description>. <recommended fix>
 
-### HIGH
+#### HIGH
 - ...
 
-### MEDIUM
+#### MEDIUM
 - ...
 
-### LOW
+#### LOW
 - ...
 
-### PASS (verified working)
-- <assertion>: <evidence>
-
-## Recommended action
-
+### Recommended action
 - PASS: `/start-ship`
 - PASS_WITH_CONCERNS: fix listed items or accept risk; then `/start-ship`
-- NEEDS_FIXES: update the plan with the fixes, re-run `/start-build`, then `/start-verify` again
+- NEEDS_FIXES: update the plan (and possibly the contract) with the fixes, re-run `/start-build`, then `/start-verify`
 - FAIL: return to `/start-plan` — the approach is wrong
 ```
 
-### Phase 5 — Report to user
+Never edit a previous iteration's content. If a finding from iteration N-1 was resolved, iteration N simply does not list it.
 
-Show the user the verdict prominently, followed by CRITICAL and HIGH items with file:line refs. Suggest the specific next step based on verdict.
+### Phase 6 — Report to user
 
-## Runtime / sandbox verification (optional but recommended for infra changes)
+Show the user the verdict prominently, followed by:
 
-Unit and integration tests don't catch everything. For changes that touch infrastructure, deployment, or external integrations, add a runtime pass:
-
-- If a PR environment exists: fork a subagent that makes real calls against it (HTTP, DB, queue) and verifies the behavior end-to-end
-- If the change is IaC: verify resources exist with expected configuration via the cloud provider's CLI
-- Write the verification script to `docs/sessions/<session>/start-verify-runtime.<ext>` so it's re-runnable
-
-Include runtime results in the main verify report under a separate section.
+- Which contract items FAILed or ERRORed (if any) with their artifact paths
+- CRITICAL and HIGH review findings with file:line refs
+- The recommended next step based on the verdict
 
 ## Iteration cap
 
@@ -163,33 +210,47 @@ If `verify.md` already exists in this session, check the iteration count. After 
 
 | Rationalization | Reality |
 |---|---|
-| "Tests pass, so it's done" | Tests check the tests you wrote. Spec compliance checks what you should have built. Different checks. |
-| "CI already runs the deterministic gate, skip Phase 1" | CI catches what CI is configured to catch. Local re-run surfaces issues fast. |
-| "I wrote it, I know it's right" | Authors are blind to their own assumptions. That's why Phase 2 forks to a fresh context. |
-| "No critical findings = ship" | Verdict is a score, not a count. A pile of mediums is still debt. |
+| "Tests pass, so it's done" | Tests check the tests you wrote. Contract execution checks what you should have built. Different checks. |
+| "CI already runs the gates, skip Phase 1" | CI catches what CI is configured to catch. The contract is the agreed check set for THIS plan; run it here regardless. |
+| "I wrote it, I know it's right" | Authors are blind to their own assumptions. That's why Phase 3 forks to a fresh context. |
+| "No critical findings = ship" | Verdict reflects contract state AND review score. A pile of mediums is still debt. Any contract FAIL caps the verdict regardless of review. |
 | "This finding is a false positive" | Verify it IS false before dismissing. The reviewer's other findings stop being credible the moment you accept unverified dismissals. |
-| "Runtime verification is overkill" | Unit tests miss deployment issues. For anything that touches infra, runtime verification is the only artifact that proves it works. |
+| "Runtime verification is overkill for this change" | The contract decides whether runtime applies. If it does and you skip it, the verdict is FAIL. If it shouldn't apply, the contract should have excluded it explicitly during planning. |
 | "I can skip the self-check pass" | Self-check removes false positives and catches what the focused passes missed. Skipping it inflates findings and wastes fix cycles. |
 | "I'll fix the mediums later" | "Later" is a bucket that fills and never empties. Fix or explicitly defer with a ticket. |
+| "The contract item is impractical here, skip it" | The contract was approved alongside the plan. Skipping here is silent default. Amend the contract explicitly (and re-approve via a diff) before skipping anything. |
+| "I'll check what I think matters, not the contract" | What you think matters is a claim. The contract is the artifact of agreement. Execute the contract and capture evidence first. |
+| "Contract FAIL + clean review = PASS_WITH_CONCERNS" | No. Any contract FAIL caps the verdict at NEEDS_FIXES. Review findings cannot override contract failures — the contract is the primary truth. |
+| "Overwrite the previous iteration, it's cleaner" | Overwriting destroys the record of what changed between attempts. Append every iteration; history is how you see whether the fix actually fixed. |
 
 ## Red Flags
 
-- Claiming verify passed without running the deterministic gate
-- Running verify in the same agent that did the build (no isolation)
-- Reporting PASS when deterministic gate failed
+- Claiming verify passed without executing every contract item
+- Running verify in the same agent that did the build (no isolation for Phase 3)
+- Reporting PASS when any contract item is FAIL or ERROR
 - Dismissing a CRITICAL finding without evidence it's wrong
 - Running verify before the full test suite is green
 - Verify report that only lists what passed, not what was found
-- Skipping runtime verification for infra changes because "unit tests pass"
-- Changing the score formula because the number looked bad
+- Executing a check that is not declared in the contract, or skipping one that is
+- Treating a local environment mismatch as EXCLUDED — that's a FAIL with a clear fix path
+- Overwriting a prior iteration in `verify.md` instead of appending a new one
+- Inventing a primitive at verify time rather than amending `docs/architecture/verification.md` in planning
+- Declaring a contract exclusion during verify rather than in the plan
+- Proceeding without running the selected runtime's `precondition`, or treating a failing `precondition` as a contract FAIL (it's a refusal to start, not a test result)
+- Mixing runtimes mid-iteration (e.g. starting `local` then invoking against `pr-preview`) — each iteration uses exactly one runtime
 
 ## Verification (of verify itself)
 
 Before closing out:
 
-- [ ] Deterministic gate ran to completion
-- [ ] Phase 2 subagent forked to isolated context
-- [ ] All four passes (spec, consistency, integrity, self-check) completed
-- [ ] `verify.md` saved with score, verdict, findings, recommended action
-- [ ] User shown the verdict and at least the CRITICAL/HIGH findings
+- [ ] Contract's `## Runtime selection` was resolved to an existing `### Runtime: <name>` block; the selected runtime's `precondition` passed (or was `none`)
+- [ ] Contract file exists and every primitive it references resolves to a definition in `docs/architecture/verification.md` under the selected runtime
+- [ ] Phase 1 ran every gate and every cross-task assertion; each has a log path recorded
+- [ ] Phase 2 produced every task artifact under `tmp/verify/` (or recorded FAIL / ERROR / EXCLUDED with rationale)
+- [ ] Phase 3 subagent forked to isolated context, with the contract and artifacts in its inputs
+- [ ] All four review passes (contract coverage, consistency, integrity, self-check) completed
+- [ ] `verify.md` appended — not overwritten — with a new `## Iteration N` section
+- [ ] Every path cited in the report exists under `tmp/verify/`
+- [ ] Verdict reflects contract state (any FAIL caps at NEEDS_FIXES; any ERROR caps at FAIL)
+- [ ] User shown the verdict, contract failures (if any) with artifact paths, and CRITICAL/HIGH review findings
 - [ ] Next step recommended based on verdict

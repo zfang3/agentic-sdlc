@@ -26,6 +26,16 @@ The principle: **the doc is the input; the code is the output.** If the agent ke
 
 ## The Process
 
+### Step 0 — Read project conventions
+
+Read `docs/skills/start-sync.md` if present. Its contents are additional project guidance for this skill (freshness SLAs, priority docs, cadence, etc.). Follow them alongside the defaults below.
+
+If the file is missing or only contains the stub template, tell the user:
+
+> No project conventions declared at `docs/skills/start-sync.md`. Proceeding with built-in defaults. Fill the stub if your team has sync-specific conventions to capture.
+
+Then proceed to Step 1.
+
 ### Step 1 — Gather the delta
 
 ```
@@ -42,9 +52,11 @@ git log --oneline <prev-tag>..HEAD
 
 ### Step 2 — Read all docs
 
-Read the contents of every file under `docs/`, plus `CLAUDE.md` if the project has one. Don't skim — actually read. You need to know what each doc claims so you can notice when it's wrong.
+Read the contents of every file under `docs/` (including all `docs/skills/*.md`), plus `CLAUDE.md` if the project has one. Don't skim — actually read. You need to know what each doc claims so you can notice when it's wrong.
 
 For large doc trees, fork to a `general-purpose` subagent with the instruction: "Read every file under docs/ and return a structured summary of claims each one makes about the code."
+
+**Also check for missing conventions files**: for each SDLC skill (`start-spec`, `start-plan`, `start-build`, `start-test`, `start-debug`, `start-verify`, `start-review`, `start-simplify`, `start-ship`, `start-address-review`, `start-sync`), confirm `docs/skills/<name>.md` exists. If any is missing, add "scaffold missing conventions file" as a proposed fix in Step 4 — a gap here means the corresponding skill has been running with no opportunity for project-specific guidance.
 
 ### Step 3 — Identify drift
 
@@ -60,6 +72,14 @@ For each doc, compare its claims against the current code:
 - **Outdated architecture descriptions** — the data flow diagram doesn't match reality
 - **Broken cross-references** — links to other files that have moved or changed section names
 - **Phantom dependencies** — docs claiming to depend on things that have been removed
+- **Residual template placeholders** — docs that still contain `<angle-bracket>` markers, template-derived `TODO`s, or content byte-identical to a file in `templates/docs/` under the plugin root. Unfinished scaffolding from `/start-bootstrap` reads as authoritative while teaching the agent nothing.
+- **Missing conventions file** — `docs/skills/<name>.md` is absent for an SDLC skill that ships with the plugin. Empty is fine (defaults apply); missing means the file was never scaffolded and the skill has no opportunity to absorb project-specific guidance.
+- **Conventions referencing removed symbols** — a `docs/skills/*.md` file mentions files, functions, or patterns that have been renamed or removed. The skill will read stale guidance and potentially apply rules that no longer make sense.
+- **Verification primitive drift** — commands in `docs/architecture/verification.md` that no longer exist (renamed binary, removed Makefile target, dropped dependency) or that have changed semantics (different default flags, different output format)
+- **Missing runtime** — an open session's contract names a runtime (`## Runtime selection`) that is no longer defined in the project-level `## Runtime primitives`, or whose block has been renamed
+- **Default runtime drift** — the project-level `Default runtime` points at a runtime that was renamed or removed from the `### Runtime:` sub-sections
+- **Orphaned contract references** — an open session's `verification.md` that references primitives no longer present in the project-level primitives file (under the selected runtime or at the top-level gates)
+- **Declared-assumption drift** — the project-level `## Declared assumptions` mention services, env files, or ports that have been restructured
 
 For each issue found, note:
 
@@ -111,15 +131,26 @@ For each fix the user approves:
 
 Group all doc edits into one task so the resulting diff is coherent.
 
-### Step 6 — Check the architecture overview specifically
+### Step 6 — Check the high-impact architecture docs specifically
 
-`docs/architecture/overview.md` is read by most SDLC skills at the start of every session. It's the highest-impact doc for agent accuracy. Check specifically:
+Two files shape every session's behavior: `docs/architecture/overview.md` (loaded at the start of most SDLC skills) and `docs/architecture/verification.md` (loaded by `/start-plan` and `/start-verify`). Check each explicitly before declaring sync complete.
+
+**overview.md**:
 
 - The "Key files" section still names the files an agent should read first.
 - The "Tech stack" list matches current dependencies.
 - The "Core concepts" terms still appear in the code with the same meaning.
 
-Stale overview content is the highest-impact drift. Fix first.
+**verification.md**:
+
+- Every gate primitive still runs successfully from a fresh clone.
+- For every declared runtime (`### Runtime: <name>`), its `precondition` still succeeds when the runtime should be available (local: always; pr-preview: when a PR is open; etc.), and its `start` / `ready-check` / `teardown` / `invoke` / `inspect` commands still work.
+- `Defined runtimes` and `Default runtime` in `## Project shape` match the `### Runtime:` sub-sections that actually exist.
+- Every declared assumption (env files, services, ports) is still accurate.
+- No `<unknown — resolve before next /start-plan>` placeholders remain from `/start-bootstrap`.
+- Open sessions' contracts reference only runtimes and primitives that still exist here.
+
+Stale content in either file is the highest-impact drift. Fix first.
 
 ### Step 7 — Detect patterns that should become skills
 
@@ -166,6 +197,8 @@ Don't try to re-derive truth from the ticket system. Ask whether the ticket syst
 - Adding docs for features that don't exist (aspirational docs pollute the agent's assumptions)
 - Deleting docs without archiving history or flagging
 - Ignoring drift in `docs/architecture/overview.md` because "it's just docs"
+- Skipping the verification-primitives check because "nothing obviously changed" — primitives go stale the moment a dependency is bumped or a script renamed
+- Letting open-session contracts reference removed primitives — every future `/start-verify` on that session will refuse to run
 - Assuming the roadmap is always the source of truth (tickets often are)
 - Syncing the code to match wrong docs instead of fixing the docs
 
@@ -176,4 +209,9 @@ Don't try to re-derive truth from the ticket system. Ask whether the ticket syst
 - [ ] User approved every doc edit before it was applied
 - [ ] No doc edits committed automatically — left staged for the user
 - [ ] `docs/architecture/overview.md` checked specifically
+- [ ] `docs/architecture/verification.md` checked specifically — every primitive still executes, every declared runtime still resolves, no stale assumptions
+- [ ] `Defined runtimes` and `Default runtime` match the `### Runtime:` sub-sections actually present
+- [ ] Open-session contracts (`docs/sessions/*/verification.md`) reference only runtimes and primitives that still exist
+- [ ] Every SDLC skill has a `docs/skills/<name>.md` file (empty is fine; missing is not)
+- [ ] Each populated `docs/skills/*.md` only references files / functions / patterns that still exist
 - [ ] Recurring corrections flagged as skill candidates

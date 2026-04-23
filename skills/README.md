@@ -2,11 +2,11 @@
 
 All skills in agentic-sdlc live in this directory. They fall into three categories by purpose. The split is for humans — Claude Code loads all skills uniformly and decides which to apply based on each skill's `description`.
 
-## SDLC — user-driven lifecycle (11)
+## SDLC — user-driven lifecycle (12)
 
 Type any of these as a slash command. Each drives one phase of the lifecycle.
 
-Start a project or onboard a teammate with [`/start-bootstrap`](start-bootstrap/SKILL.md): cloning is the onboarding. Define what to build with [`/start-spec`](start-spec/SKILL.md): spec before code. Break it into atomic tasks with [`/start-plan`](start-plan/SKILL.md). Implement task-by-task with [`/start-build`](start-build/SKILL.md): one vertical slice at a time. Root-cause failures with [`/start-debug`](start-debug/SKILL.md): cause before fix. Prove it works with [`/start-test`](start-test/SKILL.md): tests are proof. Verify before shipping with [`/start-verify`](start-verify/SKILL.md): verify artifacts, not claims. Review the diff with [`/start-review`](start-review/SKILL.md): improve code health. Reduce complexity with [`/start-simplify`](start-simplify/SKILL.md): clarity over cleverness. Ship it with [`/start-ship`](start-ship/SKILL.md): faster is safer. Keep docs aligned with [`/start-sync`](start-sync/SKILL.md): fix the docs, not the code.
+Start a project with [`/start-bootstrap`](start-bootstrap/SKILL.md): scaffold the documentation skeleton. Cloning an already-scaffolded repo is the onboarding — every other `/start-*` skill auto-loads the docs. Define what to build with [`/start-spec`](start-spec/SKILL.md): spec before code. Break it into atomic tasks with [`/start-plan`](start-plan/SKILL.md). Implement task-by-task with [`/start-build`](start-build/SKILL.md): one vertical slice at a time. Root-cause failures with [`/start-debug`](start-debug/SKILL.md): cause before fix. Prove it works with [`/start-test`](start-test/SKILL.md): tests are proof. Verify before shipping with [`/start-verify`](start-verify/SKILL.md): verify artifacts, not claims. Review the diff with [`/start-review`](start-review/SKILL.md): improve code health. Reduce complexity with [`/start-simplify`](start-simplify/SKILL.md): clarity over cleverness. Ship it with [`/start-ship`](start-ship/SKILL.md): faster is safer. Address every open review thread with [`/start-address-review`](start-address-review/SKILL.md): each thread through the same pipeline, verifier-subagent-grounded triage, append-only log. Keep docs aligned with [`/start-sync`](start-sync/SKILL.md): fix the docs, not the code.
 
 ## Techniques — model-invoked knowledge (3)
 

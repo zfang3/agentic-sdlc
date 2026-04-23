@@ -31,6 +31,16 @@ Understanding the symptom is not understanding the cause. If you can't articulat
 
 ## The Process
 
+### Step 0 — Read project conventions
+
+Read `docs/skills/start-debug.md` if present. Its contents are additional project guidance for this skill (log sources, dashboards, playbooks for known failure classes, debug flags). Follow them alongside the defaults below.
+
+If the file is missing or only contains the stub template, tell the user:
+
+> No project conventions declared at `docs/skills/start-debug.md`. Proceeding with built-in defaults. Run `/start-sync` to scaffold a stub if your team wants to capture conventions.
+
+Then proceed to Step 1.
+
 ### Step 1 — Stop the line
 
 When anything unexpected happens:

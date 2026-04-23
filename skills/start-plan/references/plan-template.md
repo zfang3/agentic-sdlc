@@ -7,6 +7,7 @@ Use this template for every plan produced by `/start-plan`.
 
 **Session**: `<YYYY-MM-DD>-<slug>`
 **Spec**: `docs/sessions/<YYYY-MM-DD>-<slug>/spec.md`
+**Verification contract**: `docs/sessions/<YYYY-MM-DD>-<slug>/verification.md` (sibling; authored alongside this plan)
 **Status**: draft | approved | in-progress | complete
 
 ## Summary
@@ -102,6 +103,9 @@ Example:
 
 - [ ] Every spec AC is covered by at least one task's AC
 - [ ] Every task has a Verify command
+- [ ] Verification contract (`verification.md`) authored and approved alongside this plan
+- [ ] Every task with observable behavior maps to a contract item
+- [ ] Every spec AC traces to a contract item or a declared exclusion
 - [ ] Full test suite passes after final task
-- [ ] `/start-verify` reports a passing score on the composed result
+- [ ] `/start-verify` executes the contract end-to-end with a PASS verdict
 ```

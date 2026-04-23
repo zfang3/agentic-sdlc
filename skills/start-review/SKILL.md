@@ -30,7 +30,15 @@ The principle: **approve a change when it definitely improves overall code healt
 
 ## The Process
 
-### Step 0 — Determine what to review
+### Step 0 — Read project conventions and determine what to review
+
+First, read `docs/skills/start-review.md` if present. Its contents are additional project guidance for this skill (review axes beyond the defaults, severity conventions, dependency policy, required reviewers). Follow them alongside the defaults below.
+
+If the file is missing or only contains the stub template, tell the user:
+
+> No project conventions declared at `docs/skills/start-review.md`. Proceeding with built-in defaults. Run `/start-sync` to scaffold a stub if your team wants to capture conventions.
+
+Then determine the review scope:
 
 ```
 With an argument:

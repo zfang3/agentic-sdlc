@@ -16,17 +16,28 @@ The principle: **faster is safer.** Smaller changes and more frequent merges red
 
 ## Prerequisite
 
-- `/start-verify` has passed recently (score 90+) — check `docs/sessions/<session>/verify.md`
+- `/start-verify` ran and the **latest iteration** in `docs/sessions/<session>/verify.md` shows verdict `PASS` — or `PASS_WITH_CONCERNS` only if the user has explicitly accepted the remaining concerns on record inside the session
+- Every contract item in that iteration is ✓ (or EXCLUDED with rationale from the contract's `## Declared exclusions`)
+- The latest verify iteration is newer than the latest commit on this branch (a stale verify is a claim, not an artifact)
+- If `docs/sessions/<session>/address-review.md` exists, its latest iteration's verdict is `ALL_RESOLVED` (no pending threads, rebuttals, or clarifications)
 - Current branch has commits ahead of main
 - All changes are committed (no uncommitted work)
 
-If verify hasn't run or score is below threshold, tell the user and stop. Don't ship unverified work.
+If the latest verify iteration is `NEEDS_FIXES`, `FAIL`, or stale — or if any contract item shows `FAIL` or `ERROR` without a matching declared exclusion — tell the user and stop. Do not ship against a partial or failing contract; that's shipping claims, not verified artifacts.
+
+If review threads are open (latest address-review iteration isn't `ALL_RESOLVED`), stop and tell the user to run `/start-address-review`. Do not merge around open threads.
 
 ## The Process
 
-### Phase 0 — Preflight
+### Phase 0 — Read project conventions and preflight
 
-Check the working tree:
+First, read `docs/skills/start-ship.md` if present. Its contents are additional project guidance for this skill (PR body template, merge strategy, required approvers, post-merge actions). Follow them alongside the defaults below.
+
+If the file is missing or only contains the stub template, tell the user:
+
+> No project conventions declared at `docs/skills/start-ship.md`. Proceeding with built-in defaults. Run `/start-sync` to scaffold a stub if your team wants to capture conventions.
+
+Then check the working tree:
 
 ```
 git status --short              # must be empty
@@ -34,7 +45,18 @@ git log --oneline main..HEAD    # must have ≥1 commit
 git rev-parse --abbrev-ref HEAD # must not be main
 ```
 
-Fail fast with a specific message if any check fails.
+Then check the verify state — read the latest `## Iteration N — <timestamp>` section in `docs/sessions/<session>/verify.md`:
+
+- Verdict must be `PASS` (or `PASS_WITH_CONCERNS` only with explicit recorded acceptance)
+- Every gate, task artifact, and cross-task assertion must be ✓ or `EXCLUDED` with a rationale linking to the contract
+- Iteration timestamp must be after the latest commit on this branch — otherwise the verify is stale
+
+Then check the address-review state (if any reviews have happened):
+
+- If `docs/sessions/<session>/address-review.md` does not exist: no reviews yet, proceed.
+- If it exists, read the latest `## Iteration N — <timestamp>` section. The verdict must be `ALL_RESOLVED` to proceed. If it is `AWAITING_VERIFY`, `PENDING_USER`, or `PENDING_REVIEWER`, stop and tell the user what to do to close it out (run `/start-verify`, approve drafts, or wait for reviewer respectively), then re-invoke `/start-address-review`.
+
+Fail fast with a specific message if any check fails. Do not paper over by invoking `/start-verify` or `/start-address-review` inline; tell the user what is missing and let them run it explicitly so they see the evidence.
 
 ### Phase 1 — Create or update the PR
 
@@ -52,9 +74,9 @@ gh pr create --draft
 Use the project's PR template if one exists at `.github/pull_request_template.md`. Fill in from the spec + plan:
 
 - **Summary**: 1-3 bullet points from the spec
-- **Acceptance criteria**: from the spec (checked off per verification)
+- **Acceptance criteria**: from the spec (checked off per contract execution)
 - **Test plan**: from the plan
-- **Verification**: quote verify.md score and findings summary
+- **Verification**: quote the latest verify iteration's verdict and review score, plus the list of contract items (all ✓ or `EXCLUDED` with rationale). Link to `docs/sessions/<session>/verify.md` and `docs/sessions/<session>/verification.md`.
 - **Breaking changes**: if any (from spec non-goals / architecture)
 - **Deployment notes**: if infra changed
 
@@ -126,74 +148,26 @@ Print a status line each iteration:
 **If TIMEOUT**:
 - Ask: keep waiting, proceed anyway, or re-request review after manual CI check
 
-### Phase 4 — Handle review feedback (if any)
+### Phase 4 — Delegate to `/start-address-review`
 
-After CI passes, check for reviewer activity:
+After CI passes, check for unresolved reviewer activity:
 
 ```
 gh pr view <n> --json reviews,comments
+gh api repos/:owner/:repo/pulls/<n>/comments --jq '[.[] | select(.in_reply_to_id == null)] | length'
 ```
 
-If there are unresolved review threads, don't merge. Address them:
+If zero unresolved threads, skip to Phase 5 (Merge).
 
-#### 4a — Collect feedback
+If any unresolved thread exists, **stop**. `/start-ship` does not handle review feedback inline — addressing reviews has its own pipeline (verifier subagent per thread, triage, fix-or-rebut-or-clarify, batched reply drafting, append-only session log). Tell the user:
 
-Fetch all open review threads and PR-level comments. Filter out:
-- Resolved threads
-- Outdated threads (pointing at code that's since changed)
-- Author's own comments
-- Bot comments (unless they flag something)
+> `<N>` unresolved review thread(s) on PR #`<n>`. Run `/start-address-review` to process them. That skill will fetch, verify each with a forked subagent, triage, fix with TDD, re-run `/start-verify`, draft replies, and post on your approval. It appends an iteration to `docs/sessions/<session>/address-review.md`.
+>
+> When `/start-address-review` returns with verdict `ALL_RESOLVED`, re-run `/start-ship` to continue toward merge.
 
-#### 4b — Triage each finding
+Exit `/start-ship` here. Do not partially process threads, do not merge, do not advance phases. The next `/start-ship` invocation will re-enter Phase 0 preflight (verify state fresh, CI green, address-review log's latest iteration = `ALL_RESOLVED`) and either advance to Phase 5 or re-delegate if new threads arrived.
 
-| Category | Action |
-|---|---|
-| **CODE_FIX** | Needs a code change — full pipeline |
-| **DOC_FIX** | Needs a doc change — full pipeline (smaller scope) |
-| **QUESTION** | Draft a factual answer from the code |
-| **DISCUSSION** | Needs human judgment — surface to user |
-
-For CODE_FIX / DOC_FIX:
-1. Read the cited file(s) to understand current state
-2. Plan the fix (what exactly to change)
-3. Apply the fix (follow `/start-build` TDD if it's code)
-4. Commit with message `fix: address review feedback on <topic>`
-
-For QUESTION:
-1. Research the answer from actual code (not memory)
-2. Draft a reply
-3. Show user for approval before posting
-
-For DISCUSSION:
-1. Surface to user with the reviewer's comment quoted
-2. Wait for user direction
-3. Convert to CODE_FIX / QUESTION based on direction, or mark "will discuss offline"
-
-#### 4c — Push fixes
-
-After addressing all non-DISCUSSION items:
-
-```
-git push origin HEAD
-```
-
-Return to Phase 3 (wait for CI).
-
-#### 4d — Post replies
-
-After user approval:
-
-```
-gh pr review <n> --comment --body "<reply text>"
-# OR reply to specific thread:
-gh api repos/:owner/:repo/pulls/:n/comments/:id/replies -f body="<reply>"
-```
-
-#### 4e — Re-request review
-
-```
-gh pr edit <n> --add-reviewer <user>
-```
+**Why the delegation**: `/start-address-review` runs the full uniform pipeline for every thread — nit, bug, rebuttal, clarification. Inlining that pipeline here would duplicate ~300 lines of skill logic and encourage shortcuts that branch the process by perceived size. Separation keeps `/start-ship` focused on the PR → CI → merge lifecycle and lets address-review own its rhythm (which is iterative — multiple review rounds land over a PR's lifetime).
 
 ### Phase 5 — Merge
 
@@ -258,6 +232,11 @@ Conflicts should be rare if PRs are small and short-lived.
 | Rationalization | Reality |
 |---|---|
 | "I'll skip /start-verify, it's just a small change" | Small changes break things. /start-verify is the artifact gate. |
+| "The last verify iteration was NEEDS_FIXES but I cleaned that up" | Re-run `/start-verify`. Cleanup that hasn't been re-verified is a claim, not an artifact. The latest iteration is what gates the ship. |
+| "One contract item FAILed but it's unrelated to this PR" | If it's unrelated, it belongs under `## Declared exclusions` in the contract with rationale — amend the plan. If it's related, it blocks shipping. Either way not shippable as-is. |
+| "Verify was green yesterday, branch hasn't meaningfully changed" | "Meaningfully" is a claim. If any commit landed after the latest verify iteration, run it again. |
+| "I'll reply to the review comments after merging" | Review replies gate the merge. Posting replies is part of `/start-address-review`'s pipeline; skipping them means the address-review log isn't `ALL_RESOLVED` and `/start-ship` won't proceed. That's by design. |
+| "I'll inline a quick fix for this one nit instead of going through `/start-address-review`" | Uniform pipeline for every comment. Inline fixes skip the verifier fork, the log entry, and the reply draft — exactly the discipline `/start-address-review` enforces. |
 | "I'll merge without review, nobody else is available" | Then wait, or ask the team. Merging unreviewed code is how regressions ship. |
 | "The CI flake is unrelated, override" | Flakes hide real issues. Investigate first. |
 | "I can address review after merging" | Reviewer will close future PRs if you don't respect theirs. Fix before merge. |
@@ -268,6 +247,11 @@ Conflicts should be rare if PRs are small and short-lived.
 ## Red Flags
 
 - Shipping without `/start-verify`
+- Shipping when the latest verify iteration is `NEEDS_FIXES` or `FAIL`
+- Shipping while any contract item shows `FAIL` or `ERROR` without a matching declared exclusion
+- Shipping with a verify iteration older than the latest commit on the branch
+- Shipping while the latest address-review iteration is `AWAITING_VERIFY`, `PENDING_USER`, or `PENDING_REVIEWER`
+- Handling any review comment inline inside `/start-ship` instead of delegating to `/start-address-review`
 - Force-pushing to main
 - Merging with CI failing (`--admin` override)
 - Ignoring review comments

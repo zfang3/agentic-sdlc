@@ -32,6 +32,16 @@ If you're unsure, err toward writing a test.
 
 ## The Process
 
+### Step 0 — Read project conventions
+
+Read `docs/skills/start-test.md` if present. Its contents are additional project guidance for this skill (preferred frameworks, fixture conventions, naming convention, coverage thresholds, mock vs real policies). Follow them alongside the defaults below.
+
+If the file is missing or only contains the stub template, tell the user:
+
+> No project conventions declared at `docs/skills/start-test.md`. Proceeding with built-in defaults. Run `/start-sync` to scaffold a stub if your team wants to capture conventions.
+
+Then proceed to the RED → GREEN → REFACTOR cycle.
+
 ### RED — write a failing test
 
 Derive the test from a spec's acceptance criterion. One AC, one test (sometimes more, never fewer).
