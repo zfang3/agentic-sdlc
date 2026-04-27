@@ -26,11 +26,20 @@ The principle: **cloning a project is the onboarding.** Every SDLC skill auto-lo
 
 ## Detection
 
-Before asking any questions, decide which mode applies:
+Before asking any questions, run two checks against the host repo and the current `${CLAUDE_PLUGIN_ROOT}/templates/`:
 
-- `./docs/README.md` is absent, or `./docs/` is absent → **initialize mode**
-- `./docs/` exists but key files (`architecture/overview.md`, `architecture/verification.md`) still contain template residue (`<angle-bracket>` markers, template-derived `TODO`s, or byte-identical-to-template content), OR `./docs/skills/` is missing entirely (e.g. the repo was bootstrapped before skills-conventions existed) → **partial mode**
-- `./docs/` exists, key files are populated, and `./docs/skills/` exists (its files may be empty templates — that's fine, it just means no project conventions declared) → **already scaffolded** — exit politely
+1. **`docs/` state** — absent, partially populated (template residue / missing template files), or fully populated.
+2. **`.gitignore` agentic-sdlc block state** — absent (no `# --- agentic-sdlc ---` marker), in sync (every non-blank, non-comment entry from `templates/gitignore-additions.txt` is also inside the host's block), or stale (host's block is missing at least one entry from the current template). Skip the in-sync check if the host has no `.gitignore` at all — that case routes to initialize mode.
+
+Routing:
+
+- `./docs/README.md` absent OR `./docs/` absent → **initialize mode** (which also creates/syncs the `.gitignore` block via Step 3).
+- Any of:
+  - `./docs/` key files (`architecture/overview.md`, `architecture/verification.md`) still contain template residue (`<angle-bracket>` markers, template-derived `TODO`s, or byte-identical-to-template content), OR
+  - `./docs/skills/` is missing entirely (e.g. the repo was bootstrapped before skills-conventions existed), OR
+  - the host has a `.gitignore` and the agentic-sdlc block is **stale or absent** (this is the v0.1.0 → v0.1.1 upgrade path)
+  → **partial mode**.
+- `./docs/` exists, key files are populated, `./docs/skills/` exists (empty stub files are fine), AND the `.gitignore` block is in sync → **already scaffolded** — exit politely.
 
 "Already scaffolded" is not an error. Tell the user exactly:
 
