@@ -105,7 +105,7 @@ Fork a `general-purpose` subagent. Give it these inputs:
 
 Ask the subagent to run four passes in parallel and return a structured report:
 
-1. **Contract coverage** — every contract item was executed; every spec AC maps to a contract item that passed or to a declared exclusion
+1. **Contract coverage** — every contract item was executed; every spec AC maps to a contract item that passed or to a declared exclusion. **Produce an explicit trace table** mapping each `plan.md` acceptance criterion (per-task ACs and the plan-level `## Acceptance (for the whole plan)` checklist) to the contract item that backs it and that item's verify result. Flag any plan AC that has no traceable contract item — that's a coverage gap from planning, not an implementation defect; surface it in Review findings under HIGH so the verdict reflects it.
 2. **Codebase consistency** — patterns, naming, error handling, imports, test style
 3. **Data integrity and boundaries** — field-by-field, type conversions, null handling, validation at edges
 4. **Self-check** — adversarially review passes 1-3, filter false positives, surface anything they missed
@@ -166,6 +166,22 @@ Write or append to `docs/sessions/<session>/verify.md`. **Append — do not over
 ### Cross-task assertions
 - [✓] no debug artifacts — grep returned empty
 - [✓] no secrets — grep returned empty
+
+### Plan acceptance signoff
+
+Trace from `plan.md` ACs → contract items → verify results. This is the explicit closing of the loop the contract was authored to back.
+
+| Plan AC (location)                        | Contract item                | Verify |
+|---|---|---|
+| Task 2: returns 401 on bad token          | T2-auth-401                  | ✓ |
+| Task 5: idempotent retry                  | T5-retry-idem                | ✗ (see Task artifacts) |
+| Plan §Acceptance: full test suite passes  | gate.unit + gate.integration | ✓ |
+| Plan §Acceptance: /start-verify PASS      | (this iteration)             | ✓ |
+
+If any plan AC has no traceable contract item, list it under "Coverage gaps" instead of in this table:
+
+#### Coverage gaps (plan ACs without contract backing)
+- Task 7: handles malformed UTF-8 — no contract item written. Filed as HIGH review finding; either add a contract item and re-run or declare an explicit exclusion in `verification.md`.
 
 ### Review findings
 
@@ -249,7 +265,8 @@ Before closing out:
 - [ ] Phase 2 produced every task artifact under `tmp/verify/` (or recorded FAIL / ERROR / EXCLUDED with rationale)
 - [ ] Phase 3 subagent forked to isolated context, with the contract and artifacts in its inputs
 - [ ] All four review passes (contract coverage, consistency, integrity, self-check) completed
-- [ ] `verify.md` appended — not overwritten — with a new `## Iteration N` section
+- [ ] Plan-AC → contract-item trace table produced; any plan AC without contract backing surfaced as a HIGH coverage-gap finding
+- [ ] `verify.md` appended — not overwritten — with a new `## Iteration N` section, including a `### Plan acceptance signoff` table
 - [ ] Every path cited in the report exists under `tmp/verify/`
 - [ ] Verdict reflects contract state (any FAIL caps at NEEDS_FIXES; any ERROR caps at FAIL)
 - [ ] User shown the verdict, contract failures (if any) with artifact paths, and CRITICAL/HIGH review findings
