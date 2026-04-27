@@ -1,6 +1,6 @@
 {
   "name": "agentic-sdlc",
-  "version": "0.1.1",
+  "version": "0.1.3",
   "description": "Full SDLC harness for Claude Code: spec-driven skills that drive the lifecycle, plus a self-evolution loop that turns every session into durable project memory the whole team inherits.",
   "author": { "name": "zfang3" },
   "homepage": "https://github.com/zfang3/agentic-sdlc",
