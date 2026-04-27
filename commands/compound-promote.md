@@ -6,6 +6,12 @@ You are running the `/compound-promote` slash command. A human just invoked it. 
 
 This command sits between the automatic skill-capture loop (SessionEnd hook → skill-distiller → pending) and the activated skill library. It's the PR-based counterpart to `/compound-learn`'s local-commit flow — same destination, different review path.
 
+## Project conventions (load first)
+
+Before running the procedure, check whether `docs/skills/compound-promote.md` exists in the host project. If it does, **read it in full** — the conventions written there layer on top of the plugin's built-in defaults for the rest of this run.
+
+If the file is missing or empty, proceed with plugin defaults below.
+
 ## Procedure
 
 ### Step 1 — List available candidates

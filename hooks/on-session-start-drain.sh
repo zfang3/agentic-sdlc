@@ -48,14 +48,31 @@ if (( ${#entries[@]} == 0 )); then
 fi
 
 # Locate claude binary — hook contexts can have minimal PATH.
-CLAUDE_BIN=$(command -v claude 2>/dev/null)
+# Override priority: $CLAUDE_BIN env var → $PATH → common install locations.
+# If your install lives somewhere else, set CLAUDE_BIN in your shell or in
+# .claude/settings.local.json's `env` block.
+if [[ -n "$CLAUDE_BIN" && -x "$CLAUDE_BIN" ]]; then
+    : # use as-is
+else
+    CLAUDE_BIN=$(command -v claude 2>/dev/null)
+fi
 if [[ -z "$CLAUDE_BIN" ]]; then
-    for p in /opt/homebrew/bin/claude /usr/local/bin/claude "$HOME/.npm-global/bin/claude" "$HOME/.local/bin/claude"; do
+    for p in \
+        /opt/homebrew/bin/claude \
+        /usr/local/bin/claude \
+        /usr/bin/claude \
+        /snap/bin/claude \
+        /run/current-system/sw/bin/claude \
+        "$HOME/.npm-global/bin/claude" \
+        "$HOME/.local/bin/claude" \
+        "$HOME/.bun/bin/claude" \
+        "$HOME/.asdf/shims/claude"
+    do
         [[ -x "$p" ]] && CLAUDE_BIN="$p" && break
     done
 fi
 if [[ -z "$CLAUDE_BIN" ]]; then
-    echo "$(date -Iseconds) drain-abort claude-not-found" >> "$LOG"
+    echo "$(date -Iseconds) drain-abort claude-not-found (set CLAUDE_BIN to override)" >> "$LOG"
     exit 0
 fi
 
@@ -77,11 +94,13 @@ for entry in "${entries[@]}"; do
         continue
     fi
 
-    # Low-signal gate: skip transcripts with <2 user turns. Tolerate whitespace
+    # Low-signal gate: skip transcripts with <N user turns. Tolerate whitespace
     # variation in the JSONL serialization ("type":"user" or "type": "user").
+    # Threshold is configurable via SKILL_DISTILLER_MIN_TURNS (default 2).
+    min_turns="${SKILL_DISTILLER_MIN_TURNS:-2}"
     user_turns=$(grep -cE '"type"[[:space:]]*:[[:space:]]*"user"' "$transcript_path" 2>/dev/null || echo 0)
-    if [[ "$user_turns" =~ ^[0-9]+$ ]] && (( user_turns < 2 )); then
-        echo "$(date -Iseconds) drain-entry $(basename "$entry") skip=low-signal turns=$user_turns" >> "$LOG"
+    if [[ "$user_turns" =~ ^[0-9]+$ ]] && (( user_turns < min_turns )); then
+        echo "$(date -Iseconds) drain-entry $(basename "$entry") skip=low-signal turns=$user_turns min=$min_turns" >> "$LOG"
         rm -f "$entry"
         skipped=$((skipped + 1))
         continue
