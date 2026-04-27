@@ -147,7 +147,7 @@ Decide one of four actions:
 
 **create_skill:**
 
-1. Create `.claude/skills/pending/<name>/SKILL.md` and `history/v0_evidence.md`
+1. Create `.agentic-sdlc/pending/<name>/SKILL.md` and `history/v0_evidence.md`
 2. In evidence, explain: what sessions motivated the skill, why no existing skill covers it
 
 **skip:** move on.

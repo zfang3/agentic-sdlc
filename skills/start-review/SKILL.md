@@ -176,7 +176,7 @@ Missing verification evidence is a finding.
 ```
 
 Save to `docs/sessions/<YYYY-MM-DD>-<slug>/review.md` if self-review on own branch,
-or to `.claude/tmp/start-reviews/pr-<n>.md` if reviewing an external PR.
+or to `.agentic-sdlc/tmp/start-reviews/pr-<n>.md` if reviewing an external PR.
 
 ### Step 7 — Present to user
 
