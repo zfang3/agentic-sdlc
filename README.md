@@ -45,7 +45,7 @@ All 17 skills live in `skills/`, grouped by purpose via the `category` frontmatt
 
 The plugin itself provides the machinery: 17 SDLC + technique + meta skills, the automatic skill-capture loop and its `/compound-promote` companion, plus a minimal doc template skeleton. It's stable across projects and only changes when the plugin releases a new version.
 
-Each project owns its filled-in `docs/architecture/` and `docs/product/` content, its session history in `.claude/sessions/`, and the project-specific skills it accumulates under `.claude/skills/` via `/compound-learn` and `/compound-evolve`. When a new teammate joins, they `git clone` the project, install agentic-sdlc, and start working — every `/start-*` skill auto-loads the project's documentation at the start of its flow, so they inherit the plugin's machinery plus the team's accumulated skills plus the project's persistent memory in one shot.
+Each project owns its filled-in `docs/architecture/` and `docs/product/` content, the per-feature SDLC trail under `docs/sessions/<date>-<slug>/` (spec, plan, verification contract, verify results — committed institutional memory, not transient scratch), and the project-specific skills it accumulates under `.claude/skills/` via `/compound-learn` and `/compound-evolve`. Per-developer Claude Code transcripts under `.claude/sessions/` stay local. When a new teammate joins, they `git clone` the project, install agentic-sdlc, and start working — every `/start-*` skill auto-loads the project's documentation at the start of its flow, so they inherit the plugin's machinery plus the team's accumulated skills plus the project's persistent memory in one shot.
 
 ## Automatic skill capture
 
