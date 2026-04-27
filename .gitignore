@@ -6,9 +6,15 @@
 .idea/
 *.swp
 
-# Local scratch
-.claude/tmp/
+# Local scratch — per-developer session artifacts
 .claude/sessions/
+docs/sessions/
 
 # Personal Claude Code overrides
 .claude/settings.local.json
+
+# Note: end-user projects that install this plugin get a `.agentic-sdlc/`
+# entry in their .gitignore via /start-bootstrap (see templates/gitignore-additions.txt).
+# This plugin repo intentionally does not commit that entry — it's user-project
+# state, not plugin source. Contributors who dogfood the loop locally can add
+# `.agentic-sdlc/` to .git/info/exclude in their clone.

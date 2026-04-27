@@ -56,9 +56,29 @@ Copy everything under `${CLAUDE_PLUGIN_ROOT}/templates/docs/` into the project's
 
 If `docs/` already exists, ask before overwriting any file. Never overwrite an existing file without explicit confirmation.
 
-### Step 3 — Append to `.gitignore`
+### Step 3 — Sync `.gitignore` (idempotent)
 
-Append the contents of `${CLAUDE_PLUGIN_ROOT}/templates/gitignore-additions.txt` to the project's `.gitignore`. Create the `.gitignore` if it doesn't exist.
+Reconcile the host project's `.gitignore` with `${CLAUDE_PLUGIN_ROOT}/templates/gitignore-additions.txt`. Re-running this step on an already-bootstrapped repo must never duplicate entries.
+
+The template file is bracketed by markers:
+
+```
+# --- agentic-sdlc ---
+...plugin-managed entries...
+# --- end agentic-sdlc ---
+```
+
+Procedure:
+
+1. If the host has no `.gitignore`, create one and append the entire template. Done.
+2. If the host's `.gitignore` does not contain `# --- agentic-sdlc ---`, append the entire template (markers and all) at the end of the file with a leading blank line. Done.
+3. Otherwise the markers exist. Locate the block (the lines between `# --- agentic-sdlc ---` and `# --- end agentic-sdlc ---`, exclusive of the markers themselves). Compare the **non-blank, non-comment** entries inside the block against the same in the template:
+   - For each template entry **missing** from the host's block: insert it just before the `# --- end agentic-sdlc ---` line.
+   - **Never delete** entries the host has inside the block that aren't in the template — they may be the user's intentional additions or hold-overs from an older plugin version. Surface them to the user with a one-line "found in your block but not in the current template — keep, or remove?" question.
+   - **Never modify** anything outside the markers.
+4. Report exactly what changed: which entries were added, which extras were kept, which the user chose to remove (if any).
+
+If the user's `.gitignore` had a pre-marker `agentic-sdlc` block from a much-older plugin version that didn't use markers (recognizable by the leading `# --- agentic-sdlc ---` header without a closing marker), tell the user, do not modify it, and ask whether to migrate by hand. Do not attempt automatic migration of unmarked legacy blocks — too easy to lose user customizations.
 
 ### Step 4 — Populate the overview
 
@@ -91,12 +111,15 @@ Tell the user that scaffolding is in place and mention:
 
 ## Partial mode (scaffolded but incomplete)
 
-Detect two kinds of incompleteness:
+Detect three kinds of incompleteness:
 
 1. **Placeholders** — scan `docs/` for `TODO` strings, angle-bracketed placeholders like `<concept>`, or files that are byte-identical to a file in `templates/docs/`. These indicate scaffolding questions that were never answered.
 2. **Missing template files** — compare the contents of `${CLAUDE_PLUGIN_ROOT}/templates/docs/` against the project's `docs/`. Any template file or directory that exists in the template set but not in the project is a gap (e.g. `docs/skills/` added in a later plugin version). Copy missing files before re-running the relevant initialize steps.
+3. **Stale `.gitignore` block** — compare non-blank, non-comment entries in `${CLAUDE_PLUGIN_ROOT}/templates/gitignore-additions.txt` against the host's `.gitignore` agentic-sdlc block (between `# --- agentic-sdlc ---` and `# --- end agentic-sdlc ---`). Any template entry not present in the host's block is a gap — the plugin added it in a later version. Do NOT detect this as a gap if the host has no `.gitignore` or no markers at all (that case falls through to Step 3 of initialize mode, which handles fresh adds).
 
 Report what's missing or placeholder-ridden and ask whether to fill them in now (re-runs the relevant initialize steps) or skip. Empty `docs/skills/*.md` files are NOT placeholder-ridden — they are the intended default state (no project conventions declared); do not flag them.
+
+For a stale `.gitignore` block, the prompt is a single yes/skip question — re-running Step 3 of initialize mode handles the rest idempotently.
 
 ## Common Rationalizations
 

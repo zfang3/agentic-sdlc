@@ -132,8 +132,8 @@ Note observed rationalizations in the skill's `Common Rationalizations` table.
 Save the candidate to:
 
 ```
-.claude/skills/pending/<name>/SKILL.md
-.claude/skills/pending/<name>/v0_evidence.md
+.agentic-sdlc/pending/<name>/SKILL.md
+.agentic-sdlc/pending/<name>/v0_evidence.md
 ```
 
 The evidence file records:
@@ -220,6 +220,6 @@ Don't run git commands yourself.
 - [ ] Insight classified (technique / pattern / gotcha / checklist / decision)
 - [ ] Draft follows the skill anatomy
 - [ ] Two pressure-test scenarios run; adjustments made
-- [ ] Candidate saved to `.claude/skills/pending/<name>/` with evidence file
+- [ ] Candidate saved to `.agentic-sdlc/pending/<name>/` with evidence file
 - [ ] User approved before promotion to `.claude/skills/<name>/`
 - [ ] No git commands run by the skill itself

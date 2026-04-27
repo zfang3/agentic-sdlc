@@ -1,0 +1,35 @@
+{
+  "description": "agentic-sdlc: SessionEnd queues transcript traces; SessionStart drains them asynchronously via skill-distiller. Produces candidates in .agentic-sdlc/pending/ for /compound-promote to review.",
+  "hooks": {
+    "SessionEnd": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/on-session-end.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "startup|resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/on-session-start.sh",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/on-session-start-drain.sh",
+            "asyncRewake": true,
+            "timeout": 600
+          }
+        ]
+      }
+    ]
+  }
+}

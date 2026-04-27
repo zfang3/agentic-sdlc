@@ -219,7 +219,7 @@ Verify that the new skill is genuinely distinct from existing skills and general
 
 ### Threshold
 
-Overall score < 0.75 → reject. Rejected candidates stay in `.claude/skills/pending/` for next round.
+Overall score < 0.75 → reject. Rejected candidates stay in `.agentic-sdlc/pending/` for next round.
 
 ---
 
@@ -232,7 +232,7 @@ For each accepted candidate:
    - Write `history/v<N>_evidence.md`
    - Overwrite `SKILL.md` with proposed content
 2. If `create_skill`:
-   - Move `.claude/skills/pending/<name>/` → `.claude/skills/<name>/`
+   - Move `.agentic-sdlc/pending/<name>/` → `.claude/skills/<name>/`
    - Write `history/v0_evidence.md`
 
 Stage all changes for the user to commit. Do NOT run `git commit`.

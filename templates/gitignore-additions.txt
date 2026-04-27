@@ -1,16 +1,23 @@
 # --- agentic-sdlc ---
-# Appended to the host project's .gitignore by /start-bootstrap.
+# Maintained by /start-bootstrap. Re-run /start-bootstrap after a plugin
+# update to refresh this block. Add your own custom ignores OUTSIDE the
+# markers — anything between the markers is plugin-managed.
 
-# Session work products are per-developer and ephemeral — not committed.
+# Per-developer Claude Code session history.
 .claude/sessions/
 
-# Temporary scratch space used by skills during execution.
-.claude/tmp/
+# Per-session SDLC artifacts (spec, plan, verify, debug, etc.) authored
+# by the /start-* skills. These are session-local working notes — every
+# developer's session output is their own; the durable artifacts they
+# produce are docs/architecture/, code, tests, and committed skills.
+docs/sessions/
 
-# Candidate skills produced by /compound-learn and /compound-evolve,
-# awaiting user approval. Once approved, they move to
-# .claude/skills/<name>/ and become committable.
-.claude/skills/pending/
+# Plugin-produced state: trace queue, hook logs, and pending skill
+# candidates produced by the auto-capture loop, /compound-learn, and
+# /compound-evolve. Promoted skills live under .claude/skills/<name>/
+# and are committed.
+.agentic-sdlc/
 
-# Local evolve-loop bookkeeping (timestamps, last-run metadata).
+# /compound-evolve last-run metadata (per-developer).
 .claude/evolve-log.md
+# --- end agentic-sdlc ---
