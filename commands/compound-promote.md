@@ -10,13 +10,6 @@ This command sits between the automatic skill-capture loop (SessionEnd hook → 
 
 Before running the procedure, check whether `docs/skills/compound-promote.md` exists in the host project. If it does, **read it in full** — the conventions written there layer on top of the plugin's built-in defaults for the rest of this run.
 
-Common things projects encode there:
-
-- **Branch naming** — replace the default `skill/compound-promote-<slug>` with the project's convention (`feat/skills/<slug>`, JIRA-id-prefixed, etc.).
-- **Commit-message format** — Conventional Commits, Gitmoji, plain prose.
-- **PR body** — use the project's `.github/pull_request_template.md` instead of the default Summary/Anatomy-check/Provenance/Test-plan layout.
-- **Reviewer routing** — project-specific labels, code-owner tags, or required reviewers.
-
 If the file is missing or empty, proceed with plugin defaults below.
 
 ## Procedure
