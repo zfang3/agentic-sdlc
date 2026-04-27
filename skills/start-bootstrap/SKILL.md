@@ -74,7 +74,7 @@ Ask three short questions, one at a time:
 
 ### Step 2 — Copy the template skeleton
 
-Copy everything under `${CLAUDE_PLUGIN_ROOT}/templates/docs/` into the project's `./docs/`. This includes `architecture/overview.md`, `architecture/verification.md`, `architecture/decisions/`, `product/spec.md`, `product/roadmap.md`, AND `skills/*.md` — one conventions stub per `/start-*` SDLC skill (`start-bootstrap`, `start-spec`, `start-plan`, `start-build`, `start-test`, `start-debug`, `start-verify`, `start-review`, `start-simplify`, `start-ship`, `start-address-review`, `start-sync`), which teams fill in over time as they develop project-specific guidance.
+Copy everything under `${CLAUDE_PLUGIN_ROOT}/templates/docs/` into the project's `./docs/`. This includes `architecture/overview.md`, `architecture/verification.md`, `architecture/decisions/`, `product/spec.md`, `product/roadmap.md`, AND `skills/*.md` — one conventions stub per skill that supports per-project overrides (`start-bootstrap`, `start-spec`, `start-plan`, `start-build`, `start-test`, `start-debug`, `start-verify`, `start-review`, `start-simplify`, `start-ship`, `start-address-review`, `start-sync`, plus `compound-promote`). Teams fill these stubs in over time as they develop project-specific guidance. The exact set of stubs is whatever lives under `${CLAUDE_PLUGIN_ROOT}/templates/docs/skills/` at copy time, so plugin updates that add new override hooks are picked up automatically by re-running `/start-bootstrap`.
 
 If `docs/` already exists, ask before overwriting any file. Never overwrite an existing file without explicit confirmation.
 
