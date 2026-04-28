@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+
+- **`/compound-promote` confirmation gate uses `AskUserQuestion`.** Step 4 now presents two structured options — **Yes** (move + commit + push + open PR) and **No, delete it** (discard the pending candidate entirely) — plus the harness-appended "Other" free-text slot, mirroring Claude Code's permission-prompt UX. Folds the previous "decline + manual `rm`" two-step into a single intentional choice.
+
 ## [0.1.4] — 2026-04-28
 
 ### Fixed
