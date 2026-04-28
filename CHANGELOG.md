@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.1.4] — 2026-04-28
+
+### Fixed
+
+- **`tmp/verify/` is now actually gitignored in downstream projects.** Both `verification.md` and `/start-verify` claimed it was, but the entry was never in `templates/gitignore-additions.txt`. Now genuinely covered.
+
+### Changed
+
+- **`docs/sessions/<date>-<slug>/` is tracked by default in downstream projects.** Reverses the v0.1.1 decision; spec / plan / verification / verify / review logs are durable decision records, aligned with GitHub Spec Kit + AGENTS.md + ADR conventions. Escape hatch: opt-in `docs/sessions/.local/` for throwaway scratch.
+- **`templates/gitignore-additions.txt` is now a flat list — no markers, no comments.** Projen-managed projects can mirror it via a single `project.gitignore.exclude(...)` call. The rationale that lived in the in-block comments is now in `templates/docs/README.md` and the plugin README.
+- **`/start-bootstrap` Step 3 rewritten for the markerless template.** Detection uses per-line presence checks instead of marker-block diffing; re-runs are idempotent. Projects bootstrapped on ≤ v0.1.3 carry an old marker block; the skill surfaces a one-time hint that markers can be safely deleted and never auto-strips them.
+- **README: new "Project layout in your repo" section** with an ASCII tree diagram showing every directory the plugin reads or writes, tracked vs ignored status, and three mental-model bullets covering `docs/`, `.claude/`, and `.agentic-sdlc/`.
+
 ## [0.1.3] — 2026-04-27
 
 ### Added

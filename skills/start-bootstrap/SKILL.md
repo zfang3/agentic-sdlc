@@ -35,17 +35,17 @@ If the file is empty or missing, proceed with plugin defaults below. The file ge
 Before asking any questions, run two checks against the host repo and the current `${CLAUDE_PLUGIN_ROOT}/templates/`:
 
 1. **`docs/` state** — absent, partially populated (template residue / missing template files), or fully populated.
-2. **`.gitignore` agentic-sdlc block state** — absent (no `# --- agentic-sdlc ---` marker), in sync (every non-blank, non-comment entry from `templates/gitignore-additions.txt` is also inside the host's block), or stale (host's block is missing at least one entry from the current template). Skip the in-sync check if the host has no `.gitignore` at all — that case routes to initialize mode.
+2. **`.gitignore` template entries** — for each line in `${CLAUDE_PLUGIN_ROOT}/templates/gitignore-additions.txt`, check whether it appears as a verbatim line in the host's `.gitignore`. Status is *in sync* (all present), *stale* (one or more missing), or *no gitignore* (host has none at all). The last case routes to initialize mode.
 
 Routing:
 
-- `./docs/README.md` absent OR `./docs/` absent → **initialize mode** (which also creates/syncs the `.gitignore` block via Step 3).
+- `./docs/README.md` absent OR `./docs/` absent → **initialize mode** (which also creates/syncs the `.gitignore` entries via Step 3).
 - Any of:
   - `./docs/` key files (`architecture/overview.md`, `architecture/verification.md`) still contain template residue (`<angle-bracket>` markers, template-derived `TODO`s, or byte-identical-to-template content), OR
   - `./docs/skills/` is missing entirely (e.g. the repo was bootstrapped before skills-conventions existed), OR
-  - the host has a `.gitignore` and the agentic-sdlc block is **stale or absent** (this is the v0.1.0 → v0.1.1 upgrade path)
+  - the host has a `.gitignore` and one or more current template entries are missing from it (this is the upgrade path between plugin versions)
   → **partial mode**.
-- `./docs/` exists, key files are populated, `./docs/skills/` exists (empty stub files are fine), AND the `.gitignore` block is in sync → **already scaffolded** — exit politely.
+- `./docs/` exists, key files are populated, `./docs/skills/` exists (empty stub files are fine), AND every template entry from `templates/gitignore-additions.txt` is present in the host's `.gitignore` → **already scaffolded** — exit politely.
 
 "Already scaffolded" is not an error. Tell the user exactly:
 
@@ -73,27 +73,23 @@ If `docs/` already exists, ask before overwriting any file. Never overwrite an e
 
 ### Step 3 — Sync `.gitignore` (idempotent)
 
-Reconcile the host project's `.gitignore` with `${CLAUDE_PLUGIN_ROOT}/templates/gitignore-additions.txt`. Re-running this step on an already-bootstrapped repo must never duplicate entries.
-
-The template file is bracketed by markers:
-
-```
-# --- agentic-sdlc ---
-...plugin-managed entries...
-# --- end agentic-sdlc ---
-```
+Reconcile the host project's `.gitignore` with `${CLAUDE_PLUGIN_ROOT}/templates/gitignore-additions.txt`. The template is a flat list — one gitignore pattern per line, no markers, no comments. Re-running this step on an already-bootstrapped repo must never duplicate entries.
 
 Procedure:
 
-1. If the host has no `.gitignore`, create one and append the entire template. Done.
-2. If the host's `.gitignore` does not contain `# --- agentic-sdlc ---`, append the entire template (markers and all) at the end of the file with a leading blank line. Done.
-3. Otherwise the markers exist. Locate the block (the lines between `# --- agentic-sdlc ---` and `# --- end agentic-sdlc ---`, exclusive of the markers themselves). Compare the **non-blank, non-comment** entries inside the block against the same in the template:
-   - For each template entry **missing** from the host's block: insert it just before the `# --- end agentic-sdlc ---` line.
-   - **Never delete** entries the host has inside the block that aren't in the template — they may be the user's intentional additions or hold-overs from an older plugin version. Surface them to the user with a one-line "found in your block but not in the current template — keep, or remove?" question.
-   - **Never modify** anything outside the markers.
-4. Report exactly what changed: which entries were added, which extras were kept, which the user chose to remove (if any).
+1. If the host has no `.gitignore`, create one containing the template entries verbatim. Done.
+2. Otherwise, read the host's `.gitignore`. For each template entry:
+   - If the entry already appears as a verbatim line in the host's `.gitignore`, skip it.
+   - Otherwise, append it to the end of the file. If this is the first entry being appended in this run and the file does not already end with a blank line, prepend a single blank line first to visually separate the additions.
+3. Report exactly which entries were added (or that the file was already in sync).
 
-If the user's `.gitignore` had a pre-marker `agentic-sdlc` block from a much-older plugin version that didn't use markers (recognizable by the leading `# --- agentic-sdlc ---` header without a closing marker), tell the user, do not modify it, and ask whether to migrate by hand. Do not attempt automatic migration of unmarked legacy blocks — too easy to lose user customizations.
+**Migration note for projects bootstrapped on plugin versions ≤ v0.1.3**: those versions wrote a marker-bracketed block (`# --- agentic-sdlc --- ... # --- end agentic-sdlc ---`) with verbose explanatory comments into the host's `.gitignore`. Markers are no longer used — the new template manages by entry-level presence alone. If you detect the literal `# --- agentic-sdlc ---` line in the host's `.gitignore`, surface a one-time hint to the user after running the procedure above:
+
+> Your `.gitignore` has an older agentic-sdlc marked block (`# --- agentic-sdlc --- ... # --- end agentic-sdlc ---`). Markers and in-block comments are no longer used; you can safely delete those lines whenever convenient. The entries inside the block are unaffected — they remain valid gitignore patterns regardless of where they live in the file. If you added any custom ignores inside the old marked block, they continue to work and can stay where they are.
+
+Do not auto-strip the old marked block — let the user decide. Do not modify anything outside the explicit append-missing-entries step.
+
+This skill never deletes lines from the host's `.gitignore`. If a future plugin version drops an entry from the template, the orphaned line stays in the host's `.gitignore` until the user removes it manually; CHANGELOG entries call out such removals so users know to clean up.
 
 ### Step 4 — Populate the overview
 
@@ -130,11 +126,11 @@ Detect three kinds of incompleteness:
 
 1. **Placeholders** — scan `docs/` for `TODO` strings, angle-bracketed placeholders like `<concept>`, or files that are byte-identical to a file in `templates/docs/`. These indicate scaffolding questions that were never answered.
 2. **Missing template files** — compare the contents of `${CLAUDE_PLUGIN_ROOT}/templates/docs/` against the project's `docs/`. Any template file or directory that exists in the template set but not in the project is a gap (e.g. `docs/skills/` added in a later plugin version). Copy missing files before re-running the relevant initialize steps.
-3. **Stale `.gitignore` block** — compare non-blank, non-comment entries in `${CLAUDE_PLUGIN_ROOT}/templates/gitignore-additions.txt` against the host's `.gitignore` agentic-sdlc block (between `# --- agentic-sdlc ---` and `# --- end agentic-sdlc ---`). Any template entry not present in the host's block is a gap — the plugin added it in a later version. Do NOT detect this as a gap if the host has no `.gitignore` or no markers at all (that case falls through to Step 3 of initialize mode, which handles fresh adds).
+3. **Missing `.gitignore` entries** — compare each line in `${CLAUDE_PLUGIN_ROOT}/templates/gitignore-additions.txt` against the host's `.gitignore`. Any template entry not present as a verbatim line is a gap — the plugin added it in a later version, or the host bootstrapped on an older plugin that didn't ship it. Do NOT detect this as a gap if the host has no `.gitignore` (that case falls through to Step 3 of initialize mode, which creates one).
 
 Report what's missing or placeholder-ridden and ask whether to fill them in now (re-runs the relevant initialize steps) or skip. Empty `docs/skills/*.md` files are NOT placeholder-ridden — they are the intended default state (no project conventions declared); do not flag them.
 
-For a stale `.gitignore` block, the prompt is a single yes/skip question — re-running Step 3 of initialize mode handles the rest idempotently.
+For missing `.gitignore` entries, the prompt is a single yes/skip question — re-running Step 3 of initialize mode handles the rest idempotently.
 
 ## Common Rationalizations
 
