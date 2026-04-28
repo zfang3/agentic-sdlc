@@ -45,7 +45,52 @@ All 17 skills live in `skills/`, grouped by purpose via the `category` frontmatt
 
 The plugin itself provides the machinery: 17 SDLC + technique + meta skills, the automatic skill-capture loop and its `/compound-promote` companion, plus a minimal doc template skeleton. It's stable across projects and only changes when the plugin releases a new version.
 
-Each project owns its filled-in `docs/architecture/` and `docs/product/` content, the per-feature SDLC trail under `docs/sessions/<date>-<slug>/` (spec, plan, verification contract, verify results — committed institutional memory, not transient scratch), and the project-specific skills it accumulates under `.claude/skills/` via `/compound-learn` and `/compound-evolve`. Per-developer Claude Code transcripts under `.claude/sessions/` stay local. When a new teammate joins, they `git clone` the project, install agentic-sdlc, and start working — every `/start-*` skill auto-loads the project's documentation at the start of its flow, so they inherit the plugin's machinery plus the team's accumulated skills plus the project's persistent memory in one shot.
+Each project owns its filled-in `docs/` content (architecture, product, per-skill conventions, and the per-feature SDLC trail) plus the promoted project-scoped skills under `.claude/skills/`. Per-developer state — Claude Code transcripts, plugin runtime state, verification artifact captures — stays local. See [Project layout in your repo](#project-layout-in-your-repo) below for the path-by-path reference. When a new teammate joins, they `git clone` the project, install agentic-sdlc, and start working — every `/start-*` skill auto-loads the project's documentation at the start of its flow, so they inherit the plugin's machinery plus the team's accumulated skills plus the project's persistent memory in one shot.
+
+## Project layout in your repo
+
+After `/start-bootstrap`, your project picks up the directories below. **`tracked`** travels with the repo via git (team-shared); **`ignored`** stays on your machine (per-developer).
+
+```
+your-project/
+├── docs/                                 ◇ team's persistent project memory
+│   ├── architecture/
+│   │   ├── overview.md                   tracked
+│   │   ├── verification.md               tracked
+│   │   └── decisions/                    tracked   (ADRs, populated manually)
+│   ├── product/
+│   │   ├── spec.md                       tracked
+│   │   └── roadmap.md                    tracked
+│   ├── skills/<skill>.md                 tracked   (one stub per /start-* skill —
+│   │                                                project-specific conventions)
+│   └── sessions/
+│       ├── <date>-<slug>/                tracked   (spec.md, plan.md,
+│       │                                            verification.md, verify.md,
+│       │                                            review.md, address-review.md,
+│       │                                            debug logs — the SDLC trail)
+│       └── .local/                       ignored   (opt-in throwaway scratch)
+├── tmp/verify/                           ignored   (raw verify artifacts; the
+│                                                    durable summary is the
+│                                                    session's verify.md)
+├── .claude/                              ◇ Claude Code's home (mixed)
+│   ├── skills/<name>/                    tracked   (promoted project skills;
+│   │                                                auto-load every session)
+│   ├── sessions/                         ignored   (per-developer transcripts)
+│   ├── settings.local.json               ignored   (personal CC overrides)
+│   └── evolve-log.md                     ignored   (/compound-evolve metadata)
+└── .agentic-sdlc/                        ◇ plugin runtime state — always per-developer
+    ├── pending/<slug>/                   ignored   (skill candidates from
+    │                                                auto-capture or /compound-learn)
+    └── tmp/                              ignored   (trace queue, hook logs)
+```
+
+`docs/architecture/` and `docs/product/` get populated by `/start-bootstrap`. Everything under `docs/sessions/<date>-<slug>/` comes from the per-skill flow that owns it — `/start-spec`, `/start-plan`, `/start-verify`, `/start-review`, `/start-address-review`. Promoted skills under `.claude/skills/` come from `/compound-promote` (manual or via the auto-capture loop's draft → review → PR pipeline).
+
+Three mental models cover the whole layout:
+
+- **`.claude/`** — Claude Code's home. Partly tracked (`skills/<name>/`, the promoted skills shared with the team) and partly per-developer (`sessions/`, `settings.local.json`, `evolve-log.md`).
+- **`.agentic-sdlc/`** — this plugin's runtime state. Always per-developer. Skill candidates leave this directory and become committed `.claude/skills/<name>/` after `/compound-promote`.
+- **`docs/`** — the team's persistent project memory. Almost entirely tracked. The one exception is the opt-in `docs/sessions/.local/` for throwaway exploration.
 
 ## Automatic skill capture
 
@@ -85,7 +130,7 @@ Two hooks do the work. They install with the plugin and run automatically.
 
 The distiller defaults to skipping. It only emits a draft when the session contained something *generalizable* — a "when X, do Y" procedural pattern, not a task-specific detail. Trivial fixes, one-off questions, and aborted work get filtered out before any draft is written.
 
-Drafts land in `.agentic-sdlc/pending/<slug>/` (gitignored — they're per-developer until promoted). Promoted skills land in `.claude/skills/<slug>/` and are committed via PR; that's where Claude Code looks for project-scoped skills, so they auto-load in future sessions once the PR is merged.
+Drafts land in `.agentic-sdlc/pending/<slug>/` (per-developer until promoted); `/compound-promote` moves them to `.claude/skills/<slug>/` and opens a PR. Once merged, the skill auto-loads in every future session. See [Project layout in your repo](#project-layout-in-your-repo) for how these directories fit into the broader picture.
 
 ### Scope
 
