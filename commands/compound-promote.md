@@ -49,9 +49,20 @@ Note any adjustments in `v0_evidence.md` under a `## Pressure-test notes` update
 
 ### Step 4 — Confirm with the user
 
-Show the final diff: what will be moved, what the new `.claude/skills/<slug>/` tree looks like, what the PR body will say. Ask for explicit confirmation before any file moves or git commands run.
+Show the final diff: what will be moved, what the new `.claude/skills/<slug>/` tree looks like, what the PR body will say. Then use the `AskUserQuestion` tool (not plain text) to gate the action — that gives the user a Claude Code-style structured choice with two explicit options plus an auto-appended "Other" for free-text feedback:
 
-If the user declines, leave everything in place. Nothing gets lost.
+```
+question: "Promote <slug>?"
+header:   "Promote"
+options:
+  1. label: "Yes"                description: "Move + commit + push + open PR (Recommended)"
+  2. label: "No, delete it"      description: "Discard the pending candidate entirely"
+```
+
+Branch on the answer:
+- **Yes** → continue through Steps 5–9 end-to-end (move + commit + push + PR).
+- **No, delete it** → `rm -rf .agentic-sdlc/pending/<slug>` and stop. Report the deletion. Do not move, branch, or commit. This is the explicit, intentional way to retire a candidate that isn't worth promoting.
+- **Other** (user typed free-text) → treat the text as a course correction. Do not proceed with the promotion and do not delete; address the feedback and re-prompt with `AskUserQuestion` when ready.
 
 ### Step 5 — Prepare the branch
 
